@@ -275,9 +275,9 @@ def run_mimicgen_square_example(
     # Save results if output path provided
     if output_hdf5_path:
         print(f"\n[Optional] Saving results to {output_hdf5_path}...")
-        write_trajectories_to_hdf5(
-            results, output_hdf5_path, ignore_keys=["datagen_info"]
-        )
+        # Note: Lists of dicts (observations, datagen_infos) are automatically skipped
+        # Only arrays with proper numeric dtypes are saved to HDF5
+        write_trajectories_to_hdf5(results, output_hdf5_path)
         print("       Results saved successfully")
 
     spark.stop()

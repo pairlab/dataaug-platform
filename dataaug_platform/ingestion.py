@@ -104,34 +104,57 @@ def read_hdf5_metadata(hdf5_path: str):
     return metadata
 
 
-def write_trajectories_to_hdf5(
-    trajectories, hdf5_path: str, ignore_keys: List[str] | None = None
-):
+def write_trajectories_to_hdf5(trajectories, hdf5_path: str, ignore_keys=None):
     """
     Write a list of trajectories to an HDF5 file.
-
+    
     Args:
         trajectories: List of trajectory dictionaries
         hdf5_path: Path to output HDF5 file
+        ignore_keys: Optional list of keys to skip when writing
     """
     import numpy as np
-
+    
+    if ignore_keys is None:
+        ignore_keys = []
+    
     def write_dict_to_group(group, data_dict):
         """Recursively write nested dictionaries to HDF5 groups."""
         for key, value in data_dict.items():
-            if ignore_keys and key in ignore_keys:
+            if key in ignore_keys:
                 continue
+            
             if isinstance(value, dict):
                 nested_grp = group.create_group(key)
                 write_dict_to_group(nested_grp, value)
             elif isinstance(value, (list, np.ndarray)):
-                group.create_dataset(key, data=value)
-            elif value is not None:
-                group.create_dataset(key, data=value)
-
+                # Check if list contains dicts or other non-serializable objects
+                if isinstance(value, list) and len(value) > 0:
+                    if isinstance(value[0], dict):
+                        # Skip lists of dicts (like observations, datagen_infos)
+                        continue
+                    # Try to convert list to array
+                    try:
+                        value = np.array(value)
+                    except (ValueError, TypeError):
+                        # Skip if can't convert
+                        continue
+                
+                # Write array/list to dataset
+                try:
+                    group.create_dataset(key, data=value)
+                except (TypeError, ValueError) as e:
+                    # Skip if data type not supported by HDF5
+                    print(f"Warning: Skipping key '{key}' - cannot write to HDF5: {e}")
+            elif value is not None and not callable(value):
+                try:
+                    group.create_dataset(key, data=value)
+                except (TypeError, ValueError) as e:
+                    print(f"Warning: Skipping key '{key}' - cannot write to HDF5: {e}")
+    
     with h5py.File(hdf5_path, "w") as f:
         data_grp = f.create_group("data")
-
+        
         for i, traj in enumerate(trajectories):
             demo_grp = data_grp.create_group(f"demo_{i}")
             write_dict_to_group(demo_grp, traj)

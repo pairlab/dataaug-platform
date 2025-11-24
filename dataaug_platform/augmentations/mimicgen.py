@@ -418,6 +418,17 @@ class MimicGenAugmentation(Augmentation):
             generated_src_demo_labels = np.concatenate(
                 generated_src_demo_labels, axis=0
             )
+        
+        # Convert lists to numpy arrays (avoids object dtype)
+        if len(generated_states) > 0:
+            generated_states = np.array(generated_states)
+        else:
+            generated_states = np.array([])
+        
+        if len(generated_src_demo_inds) > 0:
+            generated_src_demo_inds = np.array(generated_src_demo_inds, dtype=np.int32)
+        else:
+            generated_src_demo_inds = np.array([], dtype=np.int32)
 
         return dict(
             initial_state=new_initial_state,
