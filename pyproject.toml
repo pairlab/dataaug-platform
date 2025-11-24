@@ -11,6 +11,10 @@ dependencies = [
     "pyspark==4.0.1",
     "numpy>=2.0.0",
     "h5py>=3.0.0",
+]
+
+[project.optional-dependencies]
+mimicgen = [
     "mimicgen @ git+https://github.com/NVlabs/mimicgen@v1.0.0",
     "mujoco==3.3.7",
     "torch>=2.7.0",
