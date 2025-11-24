@@ -30,7 +30,8 @@ def global_aug(func):
     
     Global augmentations process the entire dataset at once. They can be run
     multiple times by passing `times > 1` to the `__init__` method. Multiple
-    runs are parallelized across Spark workers for efficiency.
+    runs are parallelized across Spark workers for efficiency. The number of
+    parallel workers can be controlled with the `num_workers` parameter.
 
     Usage:
         class MyAugmentation(Augmentation):
@@ -70,8 +71,8 @@ class Augmentation(ABC):
                 return modified_traj
 
         class MyGlobalAug(Augmentation):
-            def __init__(self, times=1, keep_original=True):
-                super().__init__(times=times, keep_original=keep_original)
+            def __init__(self, times=1, keep_original=True, num_workers=None):
+                super().__init__(times=times, keep_original=keep_original, num_workers=num_workers)
             
             @global_aug
             def apply(self, trajs):
@@ -79,7 +80,7 @@ class Augmentation(ABC):
                 return new_trajs
     """
 
-    def __init__(self, times=1, keep_original=True):
+    def __init__(self, times=1, keep_original=True, num_workers=None):
         """
         Initialize the augmentation.
         
@@ -92,14 +93,20 @@ class Augmentation(ABC):
                           in the output. If True, output contains original + augmented trajectories.
                           If False, output contains only augmented trajectories.
                           Default is True. Local augmentations ignore this parameter.
+            num_workers: For global augmentations, number of parallel workers (Spark partitions)
+                        to use when running multiple times. If None, defaults to times.
+                        Must be >= 1 if specified. Local augmentations ignore this parameter.
         
         Raises:
-            ValueError: If times is less than 1.
+            ValueError: If times is less than 1 or num_workers is less than 1.
         """
         if times < 1:
             raise ValueError("times must be >= 1")
+        if num_workers is not None and num_workers < 1:
+            raise ValueError("num_workers must be >= 1")
         self.times = times
         self.keep_original = keep_original
+        self.num_workers = num_workers if num_workers is not None else times
 
     def _apply_rdd(self, rdd):
         """
@@ -138,7 +145,7 @@ class Augmentation(ABC):
                 return result
             
             # Parallelize the multiple runs across Spark workers
-            runs_rdd = sc.parallelize(range(self.times), numSlices=self.times)
+            runs_rdd = sc.parallelize(range(self.times), numSlices=self.num_workers)
             new_trajs_nested = runs_rdd.map(run_augmentation_once).collect()
             
             # Flatten the nested list: [[traj1, traj2], [traj3, traj4]] -> [traj1, traj2, traj3, traj4]

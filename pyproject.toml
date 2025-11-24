@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dataaug-platform"
+version = "0.1.0"
+description = "Data augmentation platform"
+requires-python = ">=3.8"
+dependencies = [
+    "pyspark==4.0.1",
+    "numpy==2.3.4",
+    "h5py>=3.0.0",
+    "mimicgen @ git+https://github.com/NVlabs/mimicgen@v1.0.0",
+    "mujoco==3.7.7",
+    "torch==2.9.1",
+    "robosuite==1.4.1",
+    "robomimic @ git+https://github.com/ARISE-Initiative/robomimic@v0.5",
+]

@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from pyspark.sql import SparkSession
-from .augmentation import Augmentation
+from .augmentations.base_augmentation import Augmentation
 
 
 class Pipeline:
