@@ -104,7 +104,7 @@ def read_hdf5_metadata(hdf5_path: str):
     return metadata
 
 
-def write_trajectories_to_hdf5(trajectories, hdf5_path: str, ignore_keys=None):
+def write_trajectories_to_hdf5(trajectories, hdf5_path: str, ignore_keys=None, collate_keys=None):
     """
     Write a list of trajectories to an HDF5 file.
     
@@ -112,11 +112,38 @@ def write_trajectories_to_hdf5(trajectories, hdf5_path: str, ignore_keys=None):
         trajectories: List of trajectory dictionaries
         hdf5_path: Path to output HDF5 file
         ignore_keys: Optional list of keys to skip when writing
+        collate_keys: Optional list of keys whose values are lists/arrays of dicts.
+                      These will be collated into a dict of arrays before writing.
     """
     import numpy as np
     
     if ignore_keys is None:
         ignore_keys = []
+    if collate_keys is None:
+        collate_keys = []
+    
+    def collate_list_of_dicts(list_of_dicts):
+        """Collate a list of dicts into a dict of arrays."""
+        if not list_of_dicts:
+            return {}
+        
+        collated = {}
+        # Get all unique keys from all dicts
+        all_keys = set()
+        for d in list_of_dicts:
+            if isinstance(d, dict):
+                all_keys.update(d.keys())
+        
+        # Collate each key
+        for key in all_keys:
+            values = [d.get(key) for d in list_of_dicts if isinstance(d, dict)]
+            try:
+                collated[key] = np.array(values)
+            except (ValueError, TypeError):
+                # If can't convert to array, keep as list
+                collated[key] = values
+        
+        return collated
     
     def write_dict_to_group(group, data_dict):
         """Recursively write nested dictionaries to HDF5 groups."""
@@ -128,6 +155,15 @@ def write_trajectories_to_hdf5(trajectories, hdf5_path: str, ignore_keys=None):
                 nested_grp = group.create_group(key)
                 write_dict_to_group(nested_grp, value)
             elif isinstance(value, (list, np.ndarray)):
+                # Check if this key should be collated
+                if key in collate_keys and isinstance(value, (list, np.ndarray)) and len(value) > 0:
+                    if isinstance(value[0], dict):
+                        # Collate list of dicts into dict of arrays
+                        collated = collate_list_of_dicts(value)
+                        nested_grp = group.create_group(key)
+                        write_dict_to_group(nested_grp, collated)
+                        continue
+                
                 # Check if list contains dicts or other non-serializable objects
                 if isinstance(value, list) and len(value) > 0:
                     if isinstance(value[0], dict):
